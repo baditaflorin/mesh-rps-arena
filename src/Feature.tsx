@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MeshNameInput,
   QRExchange,
@@ -6,6 +6,9 @@ import {
   randomSalt,
   verifyReveal,
   makeScanPayload,
+  safeJson,
+  useStorageNamespace,
+  useXP,
   type MeshConfig,
   type YRoom,
 } from "@baditaflorin/mesh-common";
@@ -24,8 +27,8 @@ type Match = {
   ts: number;
 };
 
-const NAME_KEY = (p: string) => `${p}:displayName`;
-const SECRET_KEY = (p: string, m: string, peerId: string) => `${p}:rps:secret:${peerId}:${m}`;
+const NAME_KEY = "displayName";
+const secretKey = (m: string, peerId: string) => `rps:secret:${peerId}:${m}`;
 const matchKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 
 function decideWinner(a: Throw, b: Throw, aId: string, bId: string): string | "draw" {
@@ -52,14 +55,14 @@ export function Feature({ room, config }: Props) {
 }
 
 function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
-  const [name, setName] = useState(
-    () => localStorage.getItem(NAME_KEY(config.storagePrefix)) ?? "",
-  );
+  const ns = useStorageNamespace(config.storagePrefix);
+  const xp = useXP(room, "rps:xp");
+  const [name, setName] = useState(() => ns.get<string>(NAME_KEY) ?? "");
   const [, rerender] = useState(0);
 
   useEffect(() => {
-    if (name) localStorage.setItem(NAME_KEY(config.storagePrefix), name);
-  }, [name, config.storagePrefix]);
+    if (name) ns.set(NAME_KEY, name);
+  }, [name, ns]);
 
   useEffect(() => {
     const ms = room.doc.getMap<Match>("matches");
@@ -102,10 +105,7 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
     if (!isP1 && m.p2 !== room.peerId) return;
     const salt = randomSalt();
     const c = await commit(t, salt);
-    localStorage.setItem(
-      SECRET_KEY(config.storagePrefix, k, room.peerId),
-      JSON.stringify({ t, salt }),
-    );
+    ns.set(secretKey(k, room.peerId), JSON.stringify({ t, salt }));
     const updated: Match = isP1 ? { ...m, p1Commit: c.hash } : { ...m, p2Commit: c.hash };
     matches.set(k, updated);
   };
@@ -113,9 +113,11 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
   const reveal = async (k: string) => {
     const m = matches.get(k);
     if (!m) return;
-    const stored = localStorage.getItem(SECRET_KEY(config.storagePrefix, k, room.peerId));
+    const stored = ns.get<string>(secretKey(k, room.peerId));
     if (!stored) return;
-    const { t, salt } = JSON.parse(stored) as { t: Throw; salt: string };
+    const parsed = safeJson<{ t: Throw; salt: string }>(stored, { maxBytes: 4096, maxDepth: 4 });
+    if (!parsed.ok) return;
+    const { t, salt } = parsed.value;
     const isP1 = m.p1 === room.peerId;
     if (!isP1 && m.p2 !== room.peerId) return;
     const expected = isP1 ? m.p1Commit : m.p2Commit;
@@ -133,15 +135,26 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
 
   const myPayload = makeScanPayload(room.roomId, room.peerId, name.trim() || "anon");
 
-  // ELO-ish score: +1 win, -1 loss
-  const score = new Map<string, number>();
-  matches.forEach((m) => {
-    if (m.winner && m.winner !== "draw") {
-      score.set(m.winner, (score.get(m.winner) ?? 0) + 1);
-      const loser = m.winner === m.p1 ? m.p2 : m.p1;
-      score.set(loser, (score.get(loser) ?? 0) - 1);
-    }
-  });
+  // Award XP once per finished match — p1 of the lexically-lower pair is the
+  // canonical scorer so two peers can't double-award.
+  const awardedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const cb = () => {
+      matches.forEach((m, k) => {
+        if (!m.winner || m.winner === "draw") return;
+        if (awardedRef.current.has(k)) return;
+        if (m.p1 !== room.peerId) return;
+        awardedRef.current.add(k);
+        xp.awardTo(m.winner, 1);
+      });
+    };
+    matches.observe(cb);
+    cb();
+    return () => matches.unobserve(cb);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.peerId]);
+
+  const board = xp.leaderboard(50);
 
   const myMatches: Array<Match & { k: string }> = [];
   matches.forEach((m, k) => {
@@ -240,18 +253,16 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
 
       <section>
         <h2 className="viral-section-title">leaderboard</h2>
-        {score.size === 0 ? (
+        {board.length === 0 ? (
           <p className="viral-empty">no wins yet</p>
         ) : (
           <ol className="rps-board">
-            {Array.from(score.entries())
-              .sort((a, b) => b[1] - a[1])
-              .map(([id, s]) => (
-                <li key={id} className={id === room.peerId ? "is-me" : ""}>
-                  <strong>{names.get(id) ?? id.slice(0, 6)}</strong>{" "}
-                  <span>{s >= 0 ? `+${s}` : s}</span>
-                </li>
-              ))}
+            {board.map((entry) => (
+              <li key={entry.peerId} className={entry.peerId === room.peerId ? "is-me" : ""}>
+                <strong>{names.get(entry.peerId) ?? entry.peerId.slice(0, 6)}</strong>{" "}
+                <span>+{entry.xp}</span>
+              </li>
+            ))}
           </ol>
         )}
       </section>
