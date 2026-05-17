@@ -12,6 +12,8 @@
 
 **Tip the dev (buy a coffee) → https://www.paypal.com/paypalme/florinbadita**
 
+**Security audit (programmatic, headless, CPU-only) → [docs/security-audit.md](./docs/security-audit.md)** — re-run with `npm run audit:security`
+
 ---
 
 ![screenshot](docs/screenshot.png)
