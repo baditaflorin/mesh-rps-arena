@@ -15,7 +15,7 @@ test("challenge → both commit → both reveal → winner decided", async ({ br
 
     await b.locator(".mesh-qrx-payload summary").click();
     const bp = (await b.locator(".mesh-qrx-payload code").textContent()) ?? "";
-    await a.getByPlaceholder("or paste a mesh:// payload").fill(bp);
+    await a.getByPlaceholder("or paste a payload (URL or mesh://)").fill(bp);
     await a.getByRole("button", { name: "use", exact: true }).click();
 
     await expect(a.locator(".rps-list li")).toHaveCount(1);
