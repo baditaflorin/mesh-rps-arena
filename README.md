@@ -1,7 +1,7 @@
 # mesh-rps-arena
 
 [![pages](https://img.shields.io/badge/live-baditaflorin.github.io%2Fmesh-rps-arena-84cc16)](https://baditaflorin.github.io/mesh-rps-arena/)
-[![version](https://img.shields.io/badge/version-0.1.0-blue)](https://github.com/baditaflorin/mesh-rps-arena/blob/main/package.json)
+[![version](https://img.shields.io/badge/version-0.1.1-blue)](https://github.com/baditaflorin/mesh-rps-arena/blob/main/package.json)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 > Rock-paper-scissors with commit-reveal — provably fair, scan to challenge
