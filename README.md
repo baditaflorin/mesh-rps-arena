@@ -4,7 +4,7 @@
 [![version](https://img.shields.io/badge/version-0.1.1-blue)](https://github.com/baditaflorin/mesh-rps-arena/blob/main/package.json)
 [![license](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
-> Rock-paper-scissors with commit-reveal — provably fair, scan to challenge
+> Provably-fair rock-paper-scissors over a P2P mesh — each throw is locked as a hash, then revealed, so no one can peek or change their move
 
 **Live → https://baditaflorin.github.io/mesh-rps-arena/**
 
@@ -23,6 +23,15 @@
 A **rootless-computing** peer-to-peer browser app. No backend of its own beyond the self-hosted WebRTC stack listed below. State lives in a Yjs mesh shared by everyone in the same room.
 
 Read the principles → **https://baditaflorin.github.io/rootless-computing/principles.html**
+
+## Try it in 30 seconds
+
+1. Open the live URL in **two browser tabs** (both default to the same room).
+2. Type a name in each tab.
+3. Each tab now lists the other under **players here** — click **challenge**.
+4. Both pick a throw (it's locked as a hash, not sent in the clear), then both **reveal** — the winner is decided identically on both screens.
+
+On separate devices, scan the invite QR (or set the same room in ⚙ settings) to join the same room first, then the same flow applies.
 
 ## Quickstart
 

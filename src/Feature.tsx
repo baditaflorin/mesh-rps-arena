@@ -162,12 +162,27 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
   });
   myMatches.sort((a, b) => b.ts - a.ts);
 
+  // Everyone who has typed a name in this room (the shared `names` map),
+  // minus yourself and anyone you already have a match with. Lets two people
+  // in the same room challenge each other with one tap — no QR scan needed.
+  const challengeable: Array<{ peerId: string; name: string }> = [];
+  names.forEach((n, peerId) => {
+    if (peerId === room.peerId) return;
+    if (matches.has(matchKey(room.peerId, peerId))) return;
+    challengeable.push({ peerId, name: n });
+  });
+  challengeable.sort((a, b) => a.name.localeCompare(b.name));
+
   return (
     <div className="viral-screen">
       <header>
         <h1>rps arena</h1>
         <p className="viral-status">
           {matches.size} matches · {room.peerCount + 1} present
+        </p>
+        <p className="viral-help">
+          Rock-paper-scissors with no trust needed: each throw is locked as a hash first, then
+          revealed — neither player can peek or change their move. Try it with two browser tabs.
         </p>
       </header>
 
@@ -179,10 +194,37 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
         maxLength={48}
       />
 
+      <section>
+        <h2 className="viral-section-title">players here</h2>
+        {!name.trim() ? (
+          <p className="viral-empty">type your name above so others can challenge you</p>
+        ) : challengeable.length === 0 ? (
+          <p className="viral-empty">
+            no one else yet — open this page in a second tab, or share the QR below
+          </p>
+        ) : (
+          <ul className="rps-list">
+            {challengeable.map((p) => (
+              <li key={p.peerId} className="viral-card rps-player">
+                <strong>{p.name}</strong>
+                <button
+                  type="button"
+                  className="viral-primary"
+                  onClick={() => challenge(p.peerId, p.name)}
+                >
+                  challenge
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <QRExchange
         myPayload={myPayload}
-        showLabel="your QR — show to be challenged"
+        showLabel="invite QR — scan from another device to join this room"
         scanLabel="scan to challenge"
+        persistVisibilityKey={`${config.storagePrefix}:qr:visible`}
         onScan={(parsed) => challenge(parsed.peerId, parsed.extra ?? undefined)}
       />
 
