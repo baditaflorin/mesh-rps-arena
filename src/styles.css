@@ -23,6 +23,22 @@ body,
   flex-direction: column;
   gap: 0.4rem;
 }
+.viral-help {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  opacity: 0.62;
+  max-width: 42ch;
+}
+.rps-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.rps-player button {
+  flex: 0 0 auto;
+}
 .rps-throws {
   display: flex;
   gap: 0.4rem;
