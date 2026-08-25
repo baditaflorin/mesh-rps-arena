@@ -56,7 +56,14 @@ export function Feature({ room, config }: Props) {
 
 function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
   const ns = useStorageNamespace(config.storagePrefix);
-  const xp = useXP(room, "rps:xp");
+  const matches = room.doc.getMap<Match>("matches");
+  const names = room.doc.getMap<string>("names");
+  const awardTargetRef = useRef<string | null>(null);
+  const xp = useXP(room, "rps:xp", {
+    // `awardTo` is intentionally closed by default. Only the canonical
+    // scorer below opens this one synchronous award for a verified winner.
+    canAwardTo: (peerId) => awardTargetRef.current === peerId,
+  });
   const [name, setName] = useState(() => ns.get<string>(NAME_KEY) ?? "");
   const [, rerender] = useState(0);
 
@@ -75,9 +82,6 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
       names.unobserve(cb);
     };
   }, [room]);
-
-  const matches = room.doc.getMap<Match>("matches");
-  const names = room.doc.getMap<string>("names");
 
   useEffect(() => {
     if (name.trim()) names.set(room.peerId, name.trim());
@@ -145,7 +149,12 @@ function Body({ room, config }: { room: YRoom; config: MeshConfig }) {
         if (awardedRef.current.has(k)) return;
         if (m.p1 !== room.peerId) return;
         awardedRef.current.add(k);
-        xp.awardTo(m.winner, 1);
+        awardTargetRef.current = m.winner;
+        try {
+          xp.awardTo(m.winner, 1);
+        } finally {
+          awardTargetRef.current = null;
+        }
       });
     };
     matches.observe(cb);
